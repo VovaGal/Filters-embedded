@@ -1,0 +1,19 @@
+[package]
+name = "low-pass"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+lowpass = { path = "lowpass" }
+highpass = { path = "highpass" }
+
+audio-visualizer = "0.4.0"
+
+
+#lowpass-filter = "0.3.2"
+#biquad = "0.4.2"
+#rodio = "0.17.3"
+#twang = "=0.2.0"
