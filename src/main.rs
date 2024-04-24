@@ -18,8 +18,18 @@ fn main() {
         // lowpass filter
         TransformFn::Basic(|x, sampling_rate| {
             let mut data = x.iter().copied().collect::<Vec<_>>();
-            highpass_filter(&mut data, sampling_rate, 30.0);
+            highpass_filter(&mut data, sampling_rate, 80.0);
             data
         }),
     );
 }
+
+/// pseaudo code  for importing and exporting data to filters
+//fn main() {
+//    state data;
+//    state sampling rate;
+//    state cutoff frequency;
+//    write data to filter;
+//    fliter(&mut data, sampling_rate, cutoff_frequency)
+//    return new data
+//}
