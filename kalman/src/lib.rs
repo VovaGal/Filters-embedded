@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /// input xestimated, Pestimated, z, Q, R
 pub fn kalman_filter(data: &mut [f32], sampling_rate: f32, cutoff_frequency: f32) {
     convert data to matrix
@@ -20,3 +21,9 @@ pub fn kalman_filter(data: &mut [f32], sampling_rate: f32, cutoff_frequency: f32
 
     return xupdated, Pupdated
 }
+=======
+extern crate std;
+
+/// kalman filter
+
+>>>>>>> 3195d9511176be12ee2c740883e9ea36c54b7b19
