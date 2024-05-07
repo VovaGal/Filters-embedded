@@ -54,11 +54,11 @@ p0: matrix![1.0, 0.0;
 0.0, 1.0],
 };
 
-let data: Vec<Vector<f64>> = vec![vector![1.04, 2.20, 3.12],
-vector![1.11, 2.33, 3.34],
-vector![1.23, 2.21, 3.45]];
+let data_n: Vec<Vector<f32>> = vec![vector![data.acc.x, data.acc.y, data.acc.z],
+vector![data.acc.x, data.acc.y, data.acc.z],
+vector![data.acc.x, data.acc.y, data.acc.z]];
 
-let run_filter = kalman_filter.filter(&data);
+let run_filter = kalman_filter.filter(&data_n);
 let run_smooth = kalman_filter.smooth(&run_filter.0, &run_filter.1);
 
 // Print filtered and smoothened state variable coordinates
