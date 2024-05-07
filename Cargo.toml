@@ -9,8 +9,11 @@ edition = "2021"
 
 lowpass = { path = "lowpass" }
 highpass = { path = "highpass" }
+kalman = { path = "kalman" }
 
 audio-visualizer = "0.4.0"
+
+rulinalg = "0.4.1"
 
 
 #lowpass-filter = "0.3.2"
