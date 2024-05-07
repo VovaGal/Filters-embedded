@@ -11,22 +11,22 @@ use rulinalg::vector::Vector;
 /// * `p0`: initial guess for state covariance at time 1
 #[derive(Debug)]
 pub struct KalmanFilter {
-    pub q: Matrix<f32>,   // Process noise covariance
-    pub r: Matrix<f32>,   // Measurement noise covariance
-    pub h: Matrix<f32>,   // Observation matrix
-    pub f: Matrix<f32>,   // State transition matrix
-    pub x0: Vector<f32>,  // State variable initial value
-    pub p0: Matrix<f32>   // State covariance initial value
+    pub q: Matrix<f64>,   // Process noise covariance
+    pub r: Matrix<f64>,   // Measurement noise covariance
+    pub h: Matrix<f64>,   // Observation matrix
+    pub f: Matrix<f64>,   // State transition matrix
+    pub x0: Vector<f64>,  // State variable initial value
+    pub p0: Matrix<f64>   // State covariance initial value
 }
 
 #[derive(Clone, Debug)]
 pub struct KalmanState {
-    pub x: Vector<f32>,   // State vector
-    pub p: Matrix<f32>    // State covariance
+    pub x: Vector<f64>,   // State vector
+    pub p: Matrix<f64>    // State covariance
 }
 
 impl KalmanFilter {
-    pub fn filter(&self, data: &Vec<Vector<f32>>) -> (Vec<KalmanState>, Vec<KalmanState>) {
+    pub fn filter(&self, data: &Vec<Vector<f64>>) -> (Vec<KalmanState>, Vec<KalmanState>) {
 
         let t: usize = data.len();
 
@@ -74,8 +74,8 @@ pub fn predict_step(kalman_filter: &KalmanFilter,
                     -> KalmanState {
 
     // Predict state variable and covariance
-    let xp: Vector<f32> = &kalman_filter.f * &init.x;
-    let pp: Matrix<f32> = &kalman_filter.f * &init.p * &kalman_filter.f.transpose() +
+    let xp: Vector<f64> = &kalman_filter.f * &init.x;
+    let pp: Matrix<f64> = &kalman_filter.f * &init.p * &kalman_filter.f.transpose() +
         &kalman_filter.q;
 
     KalmanState { x: xp, p: pp}
@@ -83,13 +83,13 @@ pub fn predict_step(kalman_filter: &KalmanFilter,
 
 pub fn update_step(kalman_filter: &KalmanFilter,
                 pred: &KalmanState,
-                measure: &Vector<f32>)
+                measure: &Vector<f64>)
                 -> KalmanState {
 
-    let identity = Matrix::<f32>::identity(kalman_filter.x0.size());
+    let identity = Matrix::<f64>::identity(kalman_filter.x0.size());
 
     // Compute Kalman gain
-    let k: Matrix<f32> = &pred.p * &kalman_filter.h.transpose() *
+    let k: Matrix<f64> = &pred.p * &kalman_filter.h.transpose() *
         (&kalman_filter.h * &pred.p * &kalman_filter.h.transpose() + &kalman_filter.r)
         .inverse()
         .expect("Kalman gain computation failed due to failure to invert.");
@@ -104,7 +104,7 @@ pub fn update_step(kalman_filter: &KalmanFilter,
 
 pub fn filter_step(kalman_filter: &KalmanFilter,
                 init: &KalmanState,
-                measure: &Vector<f32>)
+                measure: &Vector<f64>)
                 -> (KalmanState, KalmanState) {
 
     let pred = predict_step(kalman_filter, init);
@@ -120,11 +120,11 @@ fn smoothing_step(kalman_filter: &KalmanFilter,
                 predicted: &KalmanState)
                 -> KalmanState {
 
-    let j: Matrix<f32> = &filtered.p * &kalman_filter.f.transpose() *
+    let j: Matrix<f64> = &filtered.p * &kalman_filter.f.transpose() *
         &predicted.p.clone().inverse()
         .expect("Predicted state covariance matrix could not be inverted.");
-    let x: Vector<f32> = &filtered.x + &j * (&init.x - &predicted.x);
-    let p: Matrix<f32> = &filtered.p + &j * (&init.p - &predicted.p) * &j.transpose();
+    let x: Vector<f64> = &filtered.x + &j * (&init.x - &predicted.x);
+    let p: Matrix<f64> = &filtered.p + &j * (&init.p - &predicted.p) * &j.transpose();
 
     KalmanState { x: x, p: p }
 
