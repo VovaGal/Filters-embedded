@@ -16,7 +16,6 @@ use models::motion_model;
 type MyType = f64;
 
 // observation model -------
-/// This example has a 4D state and a 2D observation.
 /// The observation is [x**3, xy].
 struct NonlinearObservationModel {}
 
@@ -108,32 +107,34 @@ fn main() -> Result<(), anyhow::Error> {
     let motion_model = motion_model::ConstantVelocity2DModel::new(dt, 100.0);
     let observation_model_gen = NonlinearObservationModel::new();
 
-    // Create some fake data with our model.
+    // data inpput here
     let mut current_state = true_initial_state;
     let mut state = vec![];
     let mut times = vec![];
     let zero4 = Vector4::<MyType>::zeros();
     let mut cur_time = 0.0;
+
+    // currently inputs random data
     while cur_time < 0.5 {
         times.push(cur_time);
         state.push(current_state);
-        let noise_sample: Matrix1x4<MyType> =
+        let data: Matrix1x4<MyType> =
             rand_mvn(&zero4, motion_model.transition_noise_covariance).unwrap();
-        let noise_sample_col: OVector<MyType, U4> = noise_sample.transpose();
-        current_state = motion_model.transition_model * current_state + noise_sample_col;
+        let data_col: OVector<MyType, U4> = data.transpose();
+        current_state = motion_model.transition_model * current_state + data_col;
         cur_time += dt;
     }
 
-    // Create noisy observations.
+    // observations collector here
     let mut observation = vec![];
     let zero2 = Vector2::<MyType>::zeros();
     for current_state in state.iter() {
         let observation_model = observation_model_gen.linearize_at(current_state);
-        let noise_sample: Matrix1x2<MyType> =
+        let data: Matrix1x2<MyType> = // inputs random noise
             rand_mvn(&zero2, observation_model.observation_noise_covariance).unwrap();
-        let noise_sample_col = noise_sample.transpose();
+        let data_col = data.transpose();
         let current_observation =
-            observation_model.predict_observation(current_state) + noise_sample_col;
+            observation_model.predict_observation(current_state) + data_col;
         observation.push(current_observation);
     }
 
