@@ -1,75 +1,154 @@
-use audio_visualizer::dynamic::live_input::AudioDevAndCfg;
-use audio_visualizer::dynamic::window_top_btm::{open_window_connect_audio, TransformFn};
-//use lowpass::lowpass_filter;
-use highpass::highpass_filter;
+use nalgebra as na;
 
-/// -- release for smoother display
-//fn main() {
-//    open_window_connect_audio(
-//        "Filter View",
-//        None,
-//        None,
-//        None,
-//        None,
-//        "time (seconds)",
-//        "Amplitude (w filter)",
-//        // default audio input device
-//        AudioDevAndCfg::new(None, None),
-//        // lowpass filter
-//        TransformFn::Basic(|x, sampling_rate| {
-//            let mut data = x.iter().copied().collect::<Vec<_>>();
-//            highpass_filter(&mut data, sampling_rate, 80.0);
-//            data
-//        }),
-//    );
-//}
-
-#[macro_use]
-extern crate rulinalg;
-
-use rulinalg::vector::Vector;
-use kalman::KalmanFilter;
-
-fn main() {
-
-let kalman_filter = KalmanFilter {
-// State covariance matrix
-    //distribution magnitude and direction of multivariate data in a multidimensional space
-q: matrix![1.0, 0.1;
-0.1, 1.0],
-// Process covariance matrix
-    //relates the covariance between the ith and jth element of each process-noise vector
-r: matrix![1.0, 0.2, 0.1;
-0.2, 0.8, 0.5;
-0.1, 0.5, 1.2],
-// State-dependence matrix
-h: matrix![1.0, 0.7;
-0.5, 0.7;
-0.8, 0.1],
-// State transition matrix
-f: matrix![0.6, 0.2;
-0.1, 0.3],
-// State variable initial value
-x0: vector![1.0, 1.0],
-// State variable initial covariance
-p0: matrix![1.0, 0.0;
-0.0, 1.0],
+use na::{
+    allocator::Allocator,
+    dimension::DimMin,
+    dimension::{U2, U4},
+    DefaultAllocator, Matrix1x2, Matrix1x4, Matrix2, Matrix2x4, Matrix4, Matrix4x2, OVector,
+    Vector2, Vector4,
 };
+use nalgebra_rand_mvn::rand_mvn;
 
-let data_n: Vec<Vector<f64>> = vec![vector![1.04, 2.20, 3.12],
-//                                    vector![1.11, 2.33, 3.34],
-//                                    vector![1.23, 2.21, 3.45],
-//                                    vector![1.11, 2.33, 3.34]
-];
+use kalman_no_std::{KalmanFilterNoControl, ObservationModel};
+use models::motion_model;
 
-let run_filter = kalman_filter.filter(&data_n);
-let run_smooth = kalman_filter.smooth(&run_filter.0, &run_filter.1);
 
-// Print filtered and smoothened state variable coordinates
-println!("filtered.1,filtered.2,smoothed.1,smoothed.2");
-for k in 0..1 {
-println!("{:.6},{:.6},{:.6},{:.6}",
-&run_filter.0[k].x[0], &run_filter.0[k].x[1],
-&run_smooth[k].x[0], &run_smooth[k].x[1])
+type MyType = f64;
+
+// observation model -------
+/// This example has a 4D state and a 2D observation.
+/// The observation is [x**3, xy].
+struct NonlinearObservationModel {}
+
+impl NonlinearObservationModel {
+    /// Construct a new `NonlinearObservationModel`.
+    fn new() -> Self {
+        Self {}
+    }
+    /// Construct a new `LinearizedObservationModel` by linearizing around `state`.
+    fn linearize_at(&self, state: &OVector<MyType, U4>) -> LinearizedObservationModel {
+        let evaluation_func = |state: &OVector<MyType, U4>| {
+            Vector2::<MyType>::new(state.x * state.x * state.x, state.x * state.y)
+        };
+
+        // Create Jacobian of the observation model. We only observe the position.
+        #[rustfmt::skip]
+        let observation_matrix = Matrix2x4::<MyType>::new(
+            3.0 * state.x * state.x, 0.0, 0.0, 0.0,
+            state.y, state.x, 0.0, 0.0,
+        );
+        let observation_matrix_transpose = observation_matrix.transpose();
+        let observation_noise_covariance = Matrix2::<MyType>::new(0.01, 0.0, 0.0, 0.01);
+
+        LinearizedObservationModel {
+            evaluation_func: Box::new(evaluation_func),
+            observation_matrix,
+            observation_matrix_transpose,
+            observation_noise_covariance,
+        }
+    }
 }
+
+type EvaluationFn = Box<dyn Fn(&Vector4<MyType>) -> Vector2<MyType>>;
+
+struct LinearizedObservationModel
+where
+    DefaultAllocator: Allocator<MyType, U4, U4>,
+    DefaultAllocator: Allocator<MyType, U2, U4>,
+    DefaultAllocator: Allocator<MyType, U4, U2>,
+    DefaultAllocator: Allocator<MyType, U2, U2>,
+    DefaultAllocator: Allocator<MyType, U4>,
+{
+    evaluation_func: EvaluationFn,
+    observation_matrix: Matrix2x4<MyType>,
+    observation_matrix_transpose: Matrix4x2<MyType>,
+    observation_noise_covariance: Matrix2<MyType>,
+}
+
+impl ObservationModel<MyType, U4, U2> for LinearizedObservationModel
+where
+    DefaultAllocator: Allocator<MyType, U4, U4>,
+    DefaultAllocator: Allocator<MyType, U2, U4>,
+    DefaultAllocator: Allocator<MyType, U4, U2>,
+    DefaultAllocator: Allocator<MyType, U2, U2>,
+    DefaultAllocator: Allocator<MyType, U4>,
+    DefaultAllocator: Allocator<MyType, U2>,
+    DefaultAllocator: Allocator<(usize, usize), U2>,
+    U2: DimMin<U2, Output = U2>,
+{
+    fn H(&self) -> &Matrix2x4<MyType> {
+        &self.observation_matrix
+    }
+    fn HT(&self) -> &Matrix4x2<MyType> {
+        &self.observation_matrix_transpose
+    }
+    fn R(&self) -> &Matrix2<MyType> {
+        &self.observation_noise_covariance
+    }
+    fn predict_observation(&self, state: &Vector4<MyType>) -> Vector2<MyType> {
+        (*self.evaluation_func)(state)
+    }
+}
+
+// the main program --------
+
+fn main() -> Result<(), anyhow::Error> {
+    env_logger::init();
+
+    let dt = 0.01;
+    let true_initial_state = Vector4::<MyType>::new(0.0, 0.0, 10.0, -5.0);
+    #[rustfmt::skip]
+    let initial_covariance = Matrix4::<MyType>::new(
+        0.1, 0.0, 0.0, 0.0,
+        0.0, 0.1, 0.0, 0.0,
+        0.0, 0.0, 0.1, 0.0,
+        0.0, 0.0, 0.0, 0.1,
+    );
+
+    let motion_model = motion_model::ConstantVelocity2DModel::new(dt, 100.0);
+    let observation_model_gen = NonlinearObservationModel::new();
+
+    // Create some fake data with our model.
+    let mut current_state = true_initial_state;
+    let mut state = vec![];
+    let mut times = vec![];
+    let zero4 = Vector4::<MyType>::zeros();
+    let mut cur_time = 0.0;
+    while cur_time < 0.5 {
+        times.push(cur_time);
+        state.push(current_state);
+        let noise_sample: Matrix1x4<MyType> =
+            rand_mvn(&zero4, motion_model.transition_noise_covariance).unwrap();
+        let noise_sample_col: OVector<MyType, U4> = noise_sample.transpose();
+        current_state = motion_model.transition_model * current_state + noise_sample_col;
+        cur_time += dt;
+    }
+
+    // Create noisy observations.
+    let mut observation = vec![];
+    let zero2 = Vector2::<MyType>::zeros();
+    for current_state in state.iter() {
+        let observation_model = observation_model_gen.linearize_at(current_state);
+        let noise_sample: Matrix1x2<MyType> =
+            rand_mvn(&zero2, observation_model.observation_noise_covariance).unwrap();
+        let noise_sample_col = noise_sample.transpose();
+        let current_observation =
+            observation_model.predict_observation(current_state) + noise_sample_col;
+        observation.push(current_observation);
+    }
+
+    let mut previous_estimate =
+        kalman_no_std::StateAndCovariance::new(true_initial_state, initial_covariance);
+
+    let mut state_estimates = vec![];
+    for this_observation in observation.iter() {
+        let observation_model = observation_model_gen.linearize_at(previous_estimate.state());
+        let kf = KalmanFilterNoControl::new(&motion_model, &observation_model);
+
+        let this_estimate = kf.step(&previous_estimate, this_observation)?;
+        state_estimates.push(*this_estimate.state());
+        previous_estimate = this_estimate;
+    }
+    println!(&times, &state, &observation, &state_estimates);
+    Ok(())
 }

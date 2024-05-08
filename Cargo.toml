@@ -1,5 +1,5 @@
 [package]
-name = "low-pass"
+name = "filters"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,16 +7,17 @@ edition = "2021"
 
 [dependencies]
 
-lowpass = { path = "lowpass" }
-highpass = { path = "highpass" }
-kalman = { path = "kalman" }
+#lowpass = { path = "lowpass" }
+#highpass = { path = "highpass" }
+#kalman = { path = "kalman" }
+kalman_no_std = { path = "kalman_no_std" }
+models = { path = "models" }
 
-audio-visualizer = "0.4.0"
+nalgebra = "0.32"
+nalgebra-rand-mvn = {git="https://github.com/strawlab/nalgebra-rand-mvn", rev="40dd19c5967b24389452aa8c540f643b10fe4e34"}
+env_logger = "0.11"
+log = { version = "0.4", features = ["release_max_level_debug"] }
+anyhow = "1.0"
 
-rulinalg = "0.4.1"
-
-
-#lowpass-filter = "0.3.2"
-#biquad = "0.4.2"
-#rodio = "0.17.3"
-#twang = "=0.2.0"
+#audio-visualizer = "0.4.0"
+#rulinalg = "0.4.1"
